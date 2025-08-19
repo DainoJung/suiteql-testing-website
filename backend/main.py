@@ -33,13 +33,22 @@ class SuiteQLRequest(BaseModel):
     query: str
     parameters: Optional[Dict[str, Any]] = None
 
+class NetSuiteConfigRequest(BaseModel):
+    account_id: str
+    consumer_key: str
+    consumer_secret: str
+    token_id: str
+    token_secret: str
+
 class NetSuiteClient:
-    def __init__(self):
-        self.account_id = os.getenv("NETSUITE_ACCOUNT_ID")
-        self.consumer_key = os.getenv("NETSUITE_CONSUMER_KEY")
-        self.consumer_secret = os.getenv("NETSUITE_CONSUMER_SECRET")
-        self.token_id = os.getenv("NETSUITE_TOKEN_ID")
-        self.token_secret = os.getenv("NETSUITE_TOKEN_SECRET")
+    def __init__(self, account_id=None, consumer_key=None, consumer_secret=None, 
+                 token_id=None, token_secret=None):
+        # 환경 변수에서 읽기 또는 파라미터로 받기
+        self.account_id = account_id or os.getenv("NETSUITE_ACCOUNT_ID")
+        self.consumer_key = consumer_key or os.getenv("NETSUITE_CONSUMER_KEY")
+        self.consumer_secret = consumer_secret or os.getenv("NETSUITE_CONSUMER_SECRET")
+        self.token_id = token_id or os.getenv("NETSUITE_TOKEN_ID")
+        self.token_secret = token_secret or os.getenv("NETSUITE_TOKEN_SECRET")
         
         if not all([self.account_id, self.consumer_key, self.consumer_secret, 
                    self.token_id, self.token_secret]):
@@ -58,6 +67,29 @@ class NetSuiteClient:
         
         self.netsuite = NetSuite(config)
         logger.info("NetSuite 클라이언트가 성공적으로 초기화되었습니다.")
+    
+    def update_config(self, account_id: str, consumer_key: str, consumer_secret: str,
+                     token_id: str, token_secret: str):
+        """런타임에 NetSuite 설정 업데이트"""
+        self.account_id = account_id
+        self.consumer_key = consumer_key
+        self.consumer_secret = consumer_secret
+        self.token_id = token_id
+        self.token_secret = token_secret
+        
+        # 새로운 설정으로 클라이언트 재생성
+        config = Config(
+            account=self.account_id,
+            auth=TokenAuth(
+                consumer_key=self.consumer_key,
+                consumer_secret=self.consumer_secret,
+                token_id=self.token_id,
+                token_secret=self.token_secret,
+            ),
+        )
+        
+        self.netsuite = NetSuite(config)
+        logger.info("NetSuite 클라이언트 설정이 업데이트되었습니다.")
     
     async def execute_suiteql(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute SuiteQL query against NetSuite using netsuite library"""
@@ -125,6 +157,54 @@ async def health_check():
         "netsuite_configured": netsuite_client is not None,
         "library": "netsuite-python"
     }
+
+@app.get("/api/config")
+async def get_current_config():
+    """현재 NetSuite 설정 상태 확인 (보안을 위해 마스킹)"""
+    if not netsuite_client:
+        return {"configured": False}
+    
+    return {
+        "configured": True,
+        "account_id": netsuite_client.account_id,
+        "consumer_key": "••••••••" if netsuite_client.consumer_key else "",
+        "consumer_secret": "••••••••" if netsuite_client.consumer_secret else "",
+        "token_id": "••••••••" if netsuite_client.token_id else "",
+        "token_secret": "••••••••" if netsuite_client.token_secret else ""
+    }
+
+@app.post("/api/config")
+async def update_config(config_request: NetSuiteConfigRequest):
+    """NetSuite 설정 업데이트"""
+    global netsuite_client
+    
+    try:
+        # 새로운 클라이언트 생성 또는 기존 클라이언트 업데이트
+        if netsuite_client:
+            netsuite_client.update_config(
+                account_id=config_request.account_id,
+                consumer_key=config_request.consumer_key,
+                consumer_secret=config_request.consumer_secret,
+                token_id=config_request.token_id,
+                token_secret=config_request.token_secret
+            )
+        else:
+            netsuite_client = NetSuiteClient(
+                account_id=config_request.account_id,
+                consumer_key=config_request.consumer_key,
+                consumer_secret=config_request.consumer_secret,
+                token_id=config_request.token_id,
+                token_secret=config_request.token_secret
+            )
+        
+        return {"message": "Configuration updated successfully"}
+        
+    except Exception as e:
+        logger.error(f"Configuration update failed: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid configuration: {str(e)}"
+        )
 
 @app.post("/api/suiteql")
 async def execute_suiteql(request: SuiteQLRequest):

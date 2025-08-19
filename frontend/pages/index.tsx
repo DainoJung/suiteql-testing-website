@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import QueryEditor from '../components/QueryEditor'
 import ResultsDisplay from '../components/ResultsDisplay'
-import { Database, Activity, AlertCircle } from 'lucide-react'
+import SettingsPage from '../components/SettingsPage'
+import { Database, Activity, AlertCircle, Settings } from 'lucide-react'
 import axios from 'axios'
 
 interface QueryResult {
@@ -21,6 +22,8 @@ export default function Home() {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
   const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null)
   const [isCheckingHealth, setIsCheckingHealth] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
+  const [needsConfiguration, setNeedsConfiguration] = useState(false)
 
   useEffect(() => {
     checkBackendHealth()
@@ -30,9 +33,15 @@ export default function Home() {
     try {
       const response = await axios.get('http://localhost:8000/health')
       setHealthStatus(response.data)
+      
+      // NetSuite가 설정되어 있지 않으면 설정 페이지로 이동
+      if (!response.data.netsuite_configured) {
+        setNeedsConfiguration(true)
+      }
     } catch (error) {
       console.error('Health check failed:', error)
       setHealthStatus({ status: 'unhealthy', netsuite_configured: false })
+      setNeedsConfiguration(true)
     } finally {
       setIsCheckingHealth(false)
     }
@@ -40,6 +49,30 @@ export default function Home() {
 
   const handleQueryResult = (result: QueryResult) => {
     setQueryResult(result)
+  }
+
+  const handleConfigurationComplete = () => {
+    setNeedsConfiguration(false)
+    setShowSettings(false)
+    checkBackendHealth() // 설정 완료 후 다시 상태 확인
+  }
+
+  // 설정이 필요하거나 설정 페이지를 표시하는 경우
+  if (needsConfiguration || showSettings) {
+    return (
+      <>
+        <Head>
+          <title>SuiteQL Query Interface - Settings</title>
+          <meta name="description" content="NetSuite SuiteQL query testing interface" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+        <SettingsPage 
+          onConfigurationComplete={handleConfigurationComplete} 
+          showBackButton={!needsConfiguration}
+        />
+      </>
+    )
   }
 
   return (
@@ -64,8 +97,17 @@ export default function Home() {
                 </div>
               </div>
               
-              {/* Health Status */}
+              {/* Health Status and Settings */}
               <div className="flex items-center space-x-4">
+                {/* Settings Button */}
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="flex items-center px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </button>
+                
                 {isCheckingHealth ? (
                   <div className="flex items-center text-sm text-gray-500">
                     <Activity className="w-4 h-4 mr-2 animate-pulse" />
