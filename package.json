@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "description": "NetSuite SuiteQL testing website with Next.js frontend and FastAPI backend",
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
+    "build": "cd frontend && npm run build",
     "dev": "cd frontend && npm run dev",
     "start": "cd frontend && npm run start",
+    "install": "cd frontend && npm install",
     "install:frontend": "cd frontend && npm install",
     "install:backend": "cd backend && pip install -r requirements.txt"
   },
