@@ -54,6 +54,9 @@ class NetSuiteClient:
                    self.token_id, self.token_secret]):
             raise ValueError("Missing required NetSuite configuration")
         
+        # Validate credential formats
+        self._validate_credentials()
+        
         # Initialize NetSuite client (using netsuite library)
         config = Config(
             account=self.account_id,
@@ -67,6 +70,60 @@ class NetSuiteClient:
         
         self.netsuite = NetSuite(config)
         logger.info("NetSuite client initialized successfully.")
+    
+    def _validate_credentials(self):
+        """Validate NetSuite credential formats"""
+        issues = []
+        warnings = []
+        
+        # Check Account ID format
+        if not self.account_id or len(self.account_id) < 5:
+            issues.append("Account ID too short")
+        elif '_SB' in self.account_id or '_sb' in self.account_id:
+            logger.info("Detected sandbox account format")
+        
+        # Check Consumer Key format (should be 64 characters)
+        if not self.consumer_key or len(self.consumer_key) != 64:
+            issues.append(f"Consumer Key should be 64 characters, got {len(self.consumer_key) if self.consumer_key else 0}")
+        
+        # Check Consumer Secret format (should be 64 characters)
+        if not self.consumer_secret or len(self.consumer_secret) != 64:
+            issues.append(f"Consumer Secret should be 64 characters, got {len(self.consumer_secret) if self.consumer_secret else 0}")
+        
+        # Check Token ID format (should be 64 characters, NOT email)
+        if self.token_id and '@' in self.token_id:
+            issues.append("🚨 CRITICAL: Token ID appears to be an email address - it should be a 64-character token")
+            issues.append("📋 TO FIX: Go to NetSuite → Setup → Users/Roles → Access Tokens → Generate new token")
+        elif not self.token_id or len(self.token_id) != 64:
+            issues.append(f"Token ID should be 64 characters, got {len(self.token_id) if self.token_id else 0}")
+        
+        # Check Token Secret format (should be 64 characters)
+        if not self.token_secret or len(self.token_secret) != 64:
+            issues.append(f"Token Secret should be 64 characters, got {len(self.token_secret) if self.token_secret else 0}")
+        
+        # Log current values for debugging (masked)
+        logger.info("Current credential formats:")
+        logger.info(f"  Account ID: {self.account_id}")
+        logger.info(f"  Consumer Key: {len(self.consumer_key) if self.consumer_key else 0} chars")
+        logger.info(f"  Consumer Secret: {len(self.consumer_secret) if self.consumer_secret else 0} chars")
+        logger.info(f"  Token ID: {len(self.token_id) if self.token_id else 0} chars {'(contains @)' if self.token_id and '@' in self.token_id else ''}")
+        logger.info(f"  Token Secret: {len(self.token_secret) if self.token_secret else 0} chars")
+        
+        if issues:
+            logger.error("❌ CREDENTIAL VALIDATION FAILED:")
+            for issue in issues:
+                logger.error(f"  - {issue}")
+            logger.error("\n📋 TROUBLESHOOTING STEPS:")
+            logger.error("  1. Go to NetSuite → Setup → Integration → Web Services Preferences")
+            logger.error("  2. Go to Setup → Users/Roles → Access Tokens")
+            logger.error("  3. Create or regenerate tokens (NOT user credentials)")
+            logger.error("  4. Use the 64-character TOKEN values, not email/password")
+            
+            # Don't raise exception, just log - let connection attempt provide real error
+            return False
+        
+        logger.info("✅ All credential formats look correct")
+        return True
     
     def update_config(self, account_id: str, consumer_key: str, consumer_secret: str,
                      token_id: str, token_secret: str):
@@ -306,6 +363,81 @@ async def test_auth():
             "error": str(e),
             "library": "netsuite-python"
         }
+
+@app.get("/api/validate-credentials")
+async def validate_credentials():
+    """Validate credential formats and provide detailed feedback"""
+    if not netsuite_client:
+        return {
+            "valid": False,
+            "configured": False,
+            "message": "NetSuite client not configured"
+        }
+    
+    # Perform validation
+    validation_result = netsuite_client._validate_credentials()
+    
+    # Detailed format checking
+    issues = []
+    checks = []
+    
+    # Account ID
+    if netsuite_client.account_id:
+        if len(netsuite_client.account_id) >= 5:
+            checks.append({"item": "Account ID", "status": "✅", "message": f"Format looks correct ({netsuite_client.account_id})"})
+        else:
+            checks.append({"item": "Account ID", "status": "❌", "message": "Too short"})
+            issues.append("Account ID format issue")
+    
+    # Consumer Key
+    if netsuite_client.consumer_key:
+        if len(netsuite_client.consumer_key) == 64:
+            checks.append({"item": "Consumer Key", "status": "✅", "message": "64 characters - correct format"})
+        else:
+            checks.append({"item": "Consumer Key", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.consumer_key)}"})
+            issues.append("Consumer Key length issue")
+    
+    # Consumer Secret
+    if netsuite_client.consumer_secret:
+        if len(netsuite_client.consumer_secret) == 64:
+            checks.append({"item": "Consumer Secret", "status": "✅", "message": "64 characters - correct format"})
+        else:
+            checks.append({"item": "Consumer Secret", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.consumer_secret)}"})
+            issues.append("Consumer Secret length issue")
+    
+    # Token ID (critical check)
+    if netsuite_client.token_id:
+        if '@' in netsuite_client.token_id:
+            checks.append({"item": "Token ID", "status": "🚨", "message": "CRITICAL: This appears to be an email address, not a token!"})
+            issues.append("Token ID is email format instead of token")
+        elif len(netsuite_client.token_id) == 64:
+            checks.append({"item": "Token ID", "status": "✅", "message": "64 characters - correct format"})
+        else:
+            checks.append({"item": "Token ID", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.token_id)}"})
+            issues.append("Token ID length issue")
+    
+    # Token Secret
+    if netsuite_client.token_secret:
+        if len(netsuite_client.token_secret) == 64:
+            checks.append({"item": "Token Secret", "status": "✅", "message": "64 characters - correct format"})
+        else:
+            checks.append({"item": "Token Secret", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.token_secret)}"})
+            issues.append("Token Secret length issue")
+    
+    return {
+        "valid": validation_result,
+        "configured": True,
+        "issues": issues,
+        "checks": checks,
+        "troubleshooting": [
+            "1. Go to NetSuite → Setup → Integration → Web Services Preferences",
+            "2. Go to Setup → Users/Roles → Access Tokens",
+            "3. Create new Access Token (NOT user login credentials)",
+            "4. Copy the 64-character Token ID and Token Secret values",
+            "5. Ensure Integration Record is enabled",
+            "6. Verify user role has 'SuiteQL' permission"
+        ] if not validation_result else []
+    }
 
 @app.get("/api/debug-auth")
 async def debug_auth():
