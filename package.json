@@ -1,0 +1,19 @@
+{
+  "name": "suiteql-testing-website",
+  "version": "1.0.0",
+  "description": "NetSuite SuiteQL testing website with Next.js frontend and FastAPI backend",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "start": "cd frontend && npm run start",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && pip install -r requirements.txt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DainoJung/suiteql-testing-website.git"
+  },
+  "keywords": ["netsuite", "suiteql", "nextjs", "fastapi"],
+  "author": "DainoJung",
+  "license": "MIT"
+}

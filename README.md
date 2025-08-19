@@ -154,6 +154,38 @@ NETSUITE_BASE_URL=https://your-account.restlets.api.netsuite.com
 - Backend: Use FastAPI's automatic documentation at `http://localhost:8000/docs`
 - Frontend: Use browser developer tools for debugging
 
+## Deployment
+
+### Frontend (Vercel)
+
+This project is configured for easy deployment on Vercel:
+
+1. **Fork or clone** this repository
+2. **Connect your repository** to Vercel
+3. **Configure the build settings**:
+   - Build Command: `cd frontend && npm run build`
+   - Output Directory: `frontend/.next`
+   - Install Command: `cd frontend && npm install`
+4. **Deploy** - Vercel will automatically build and deploy the frontend
+
+Note: The frontend-only deployment provides the UI interface. You'll need to update API calls to point to your deployed backend or use the web-based configuration to set up NetSuite credentials dynamically.
+
+### Backend Deployment
+
+The FastAPI backend can be deployed on platforms like:
+- **Railway** - Python-friendly with easy deployment
+- **Heroku** - Traditional cloud platform
+- **DigitalOcean App Platform** - Simple container deployment
+- **AWS/GCP/Azure** - Full cloud provider options
+
+### Configuration for Production
+
+When deploying to production:
+1. Update API endpoints in the frontend to point to your deployed backend
+2. Set up environment variables on your hosting platform
+3. Use the web-based configuration interface to set NetSuite credentials
+4. Enable HTTPS for secure credential transmission
+
 ## License
 
 This project is for educational and testing purposes.

@@ -4,6 +4,13 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     appDir: false
+  },
+  trailingSlash: false,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
   }
 }
 

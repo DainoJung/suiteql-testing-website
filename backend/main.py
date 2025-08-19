@@ -43,7 +43,7 @@ class NetSuiteConfigRequest(BaseModel):
 class NetSuiteClient:
     def __init__(self, account_id=None, consumer_key=None, consumer_secret=None, 
                  token_id=None, token_secret=None):
-        # 환경 변수에서 읽기 또는 파라미터로 받기
+        # Read from environment variables or parameters
         self.account_id = account_id or os.getenv("NETSUITE_ACCOUNT_ID")
         self.consumer_key = consumer_key or os.getenv("NETSUITE_CONSUMER_KEY")
         self.consumer_secret = consumer_secret or os.getenv("NETSUITE_CONSUMER_SECRET")
@@ -54,7 +54,7 @@ class NetSuiteClient:
                    self.token_id, self.token_secret]):
             raise ValueError("Missing required NetSuite configuration")
         
-        # NetSuite 클라이언트 초기화 (netsuite 라이브러리 사용)
+        # Initialize NetSuite client (using netsuite library)
         config = Config(
             account=self.account_id,
             auth=TokenAuth(
@@ -66,18 +66,18 @@ class NetSuiteClient:
         )
         
         self.netsuite = NetSuite(config)
-        logger.info("NetSuite 클라이언트가 성공적으로 초기화되었습니다.")
+        logger.info("NetSuite client initialized successfully.")
     
     def update_config(self, account_id: str, consumer_key: str, consumer_secret: str,
                      token_id: str, token_secret: str):
-        """런타임에 NetSuite 설정 업데이트"""
+        """Update NetSuite configuration at runtime"""
         self.account_id = account_id
         self.consumer_key = consumer_key
         self.consumer_secret = consumer_secret
         self.token_id = token_id
         self.token_secret = token_secret
         
-        # 새로운 설정으로 클라이언트 재생성
+        # Recreate client with new configuration
         config = Config(
             account=self.account_id,
             auth=TokenAuth(
@@ -89,7 +89,7 @@ class NetSuiteClient:
         )
         
         self.netsuite = NetSuite(config)
-        logger.info("NetSuite 클라이언트 설정이 업데이트되었습니다.")
+        logger.info("NetSuite client configuration updated successfully.")
     
     async def execute_suiteql(self, query: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute SuiteQL query against NetSuite using netsuite library"""
@@ -98,12 +98,12 @@ class NetSuiteClient:
             logger.info(f"Executing SuiteQL query: {query[:100]}...")
             logger.info(f"Account ID: {self.account_id}")
             
-            # SuiteQL 쿼리 파라미터 준비
+            # Prepare SuiteQL query parameters
             params = {"q": query}
             if parameters:
                 params["params"] = parameters
             
-            # netsuite 라이브러리를 사용한 SuiteQL 호출
+            # SuiteQL call using netsuite library
             endpoint = "/query/v1/suiteql"
             headers = {"Prefer": "transient"}
             
@@ -113,30 +113,30 @@ class NetSuiteClient:
                 headers=headers
             )
             
-            logger.info(f"NetSuite API 응답 성공")
-            logger.info(f"응답 데이터: {str(response)[:200]}...")
+            logger.info(f"NetSuite API response successful")
+            logger.info(f"Response data: {str(response)[:200]}...")
             
             return response
             
         except Exception as e:
-            logger.error(f"NetSuite SuiteQL 실행 실패: {str(e)}")
+            logger.error(f"NetSuite SuiteQL execution failed: {str(e)}")
             error_msg = str(e)
             
-            # 에러 타입별 처리
+            # Handle different error types
             if "401" in error_msg or "Unauthorized" in error_msg:
                 raise HTTPException(
                     status_code=401,
-                    detail="NetSuite 인증 실패. 자격 증명을 확인해주세요."
+                    detail="NetSuite authentication failed. Please check your credentials."
                 )
             elif "403" in error_msg or "Forbidden" in error_msg:
                 raise HTTPException(
                     status_code=403,
-                    detail="NetSuite 접근 권한이 없습니다. SuiteQL 권한을 확인해주세요."
+                    detail="NetSuite access denied. Please check your SuiteQL permissions."
                 )
             else:
                 raise HTTPException(
                     status_code=500,
-                    detail=f"NetSuite API 오류: {error_msg}"
+                    detail=f"NetSuite API error: {error_msg}"
                 )
 
 # Initialize NetSuite client
@@ -160,7 +160,7 @@ async def health_check():
 
 @app.get("/api/config")
 async def get_current_config():
-    """현재 NetSuite 설정 상태 확인 (보안을 위해 마스킹)"""
+    """Check current NetSuite configuration status (masked for security)"""
     if not netsuite_client:
         return {"configured": False}
     
@@ -175,11 +175,11 @@ async def get_current_config():
 
 @app.post("/api/config")
 async def update_config(config_request: NetSuiteConfigRequest):
-    """NetSuite 설정 업데이트"""
+    """Update NetSuite configuration"""
     global netsuite_client
     
     try:
-        # 새로운 클라이언트 생성 또는 기존 클라이언트 업데이트
+        # Create new client or update existing client
         if netsuite_client:
             netsuite_client.update_config(
                 account_id=config_request.account_id,
@@ -251,7 +251,7 @@ async def test_auth():
         raise HTTPException(status_code=500, detail="NetSuite client not configured")
     
     try:
-        # 간단한 테스트 쿼리
+        # Simple test query
         test_query = "SELECT id, tranid FROM Transaction WHERE RowNum <= 1"
         
         response = await netsuite_client.execute_suiteql(test_query)
