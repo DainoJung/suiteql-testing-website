@@ -5,6 +5,7 @@ import ResultsDisplay from '../components/ResultsDisplay'
 import SettingsPage from '../components/SettingsPage'
 import { Database, Activity, AlertCircle, Settings } from 'lucide-react'
 import axios from 'axios'
+import { API_ENDPOINTS } from '../config/api'
 
 interface QueryResult {
   success: boolean
@@ -31,7 +32,7 @@ export default function Home() {
 
   const checkBackendHealth = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/health')
+      const response = await axios.get(API_ENDPOINTS.health)
       setHealthStatus(response.data)
       
       // NetSuite가 설정되어 있지 않으면 설정 페이지로 이동

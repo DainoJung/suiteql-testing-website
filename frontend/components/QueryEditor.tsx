@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react'
 import { Play, Download, History, Save, Loader2 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { API_ENDPOINTS } from '../config/api'
 
 interface QueryResult {
   success: boolean
@@ -62,7 +63,7 @@ AND RowNum <= 10`)
     try {
       console.log('Executing query:', currentQuery.trim())
       
-      const response = await axios.post('http://localhost:8000/api/suiteql', {
+      const response = await axios.post(API_ENDPOINTS.suiteql, {
         query: currentQuery.trim()
       })
 

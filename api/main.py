@@ -9,10 +9,7 @@ import logging
 from netsuite import NetSuite, Config, TokenAuth
 
 # Load environment variables
-load_dotenv(dotenv_path="../.env")
-# Also try loading from current directory if parent doesn't exist
-if not os.path.exists("../.env"):
-    load_dotenv()
+load_dotenv()
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -22,11 +19,11 @@ app = FastAPI(title="SuiteQL API", description="NetSuite SuiteQL Query Interface
 
 # CORS middleware for Next.js frontend
 # Get allowed origins from environment or use defaults
-allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,https://suiteql-testing-website-mtubvdcc8-dainos-projects.vercel.app").split(",")
+allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") != "*" else ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],  # Allow all origins for Vercel deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -232,7 +229,7 @@ except ValueError as e:
 async def root():
     return {"message": "SuiteQL API is running", "library": "netsuite-python"}
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {
         "status": "healthy",
@@ -326,184 +323,7 @@ async def execute_suiteql(request: SuiteQLRequest):
             detail=f"Unexpected error: {str(e)}"
         )
 
-@app.get("/api/test-auth")
-async def test_auth():
-    """Test NetSuite authentication"""
-    if not netsuite_client:
-        return {
-            "status": "error",
-            "error": "NetSuite client not configured. Please set up credentials first.",
-            "library": "netsuite-python"
-        }
-    
-    try:
-        result = await netsuite_client.test_connection()
-        
-        if result["status"] == "success":
-            return {
-                "status": "success",
-                "message": "NetSuite authentication successful",
-                "library": "netsuite-python",
-                "account_id": netsuite_client.account_id
-            }
-        else:
-            return {
-                "status": "error",
-                "error": result["error"],
-                "library": "netsuite-python",
-                "troubleshooting": [
-                    "1. Verify Consumer Key and Consumer Secret in integration record",
-                    "2. Verify Token ID and Token Secret are active",
-                    "3. Check if integration record is enabled",
-                    "4. Ensure user role has 'SuiteQL' permission",
-                    "5. Check Login Audit Trail in NetSuite for more details"
-                ]
-            }
-        
-    except Exception as e:
-        return {
-            "status": "error", 
-            "error": str(e),
-            "library": "netsuite-python"
-        }
-
-@app.get("/api/validate-credentials")
-async def validate_credentials():
-    """Validate credential formats and provide detailed feedback"""
-    if not netsuite_client:
-        return {
-            "valid": False,
-            "configured": False,
-            "message": "NetSuite client not configured"
-        }
-    
-    # Perform validation
-    validation_result = netsuite_client._validate_credentials()
-    
-    # Detailed format checking
-    issues = []
-    checks = []
-    
-    # Account ID
-    if netsuite_client.account_id:
-        if len(netsuite_client.account_id) >= 5:
-            checks.append({"item": "Account ID", "status": "✅", "message": f"Format looks correct ({netsuite_client.account_id})"})
-        else:
-            checks.append({"item": "Account ID", "status": "❌", "message": "Too short"})
-            issues.append("Account ID format issue")
-    
-    # Consumer Key
-    if netsuite_client.consumer_key:
-        if len(netsuite_client.consumer_key) == 64:
-            checks.append({"item": "Consumer Key", "status": "✅", "message": "64 characters - correct format"})
-        else:
-            checks.append({"item": "Consumer Key", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.consumer_key)}"})
-            issues.append("Consumer Key length issue")
-    
-    # Consumer Secret
-    if netsuite_client.consumer_secret:
-        if len(netsuite_client.consumer_secret) == 64:
-            checks.append({"item": "Consumer Secret", "status": "✅", "message": "64 characters - correct format"})
-        else:
-            checks.append({"item": "Consumer Secret", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.consumer_secret)}"})
-            issues.append("Consumer Secret length issue")
-    
-    # Token ID (critical check)
-    if netsuite_client.token_id:
-        if '@' in netsuite_client.token_id:
-            checks.append({"item": "Token ID", "status": "🚨", "message": "CRITICAL: This appears to be an email address, not a token!"})
-            issues.append("Token ID is email format instead of token")
-        elif len(netsuite_client.token_id) == 64:
-            checks.append({"item": "Token ID", "status": "✅", "message": "64 characters - correct format"})
-        else:
-            checks.append({"item": "Token ID", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.token_id)}"})
-            issues.append("Token ID length issue")
-    
-    # Token Secret
-    if netsuite_client.token_secret:
-        if len(netsuite_client.token_secret) == 64:
-            checks.append({"item": "Token Secret", "status": "✅", "message": "64 characters - correct format"})
-        else:
-            checks.append({"item": "Token Secret", "status": "❌", "message": f"Should be 64 characters, got {len(netsuite_client.token_secret)}"})
-            issues.append("Token Secret length issue")
-    
-    return {
-        "valid": validation_result,
-        "configured": True,
-        "issues": issues,
-        "checks": checks,
-        "troubleshooting": [
-            "1. Go to NetSuite → Setup → Integration → Web Services Preferences",
-            "2. Go to Setup → Users/Roles → Access Tokens",
-            "3. Create new Access Token (NOT user login credentials)",
-            "4. Copy the 64-character Token ID and Token Secret values",
-            "5. Ensure Integration Record is enabled",
-            "6. Verify user role has 'SuiteQL' permission"
-        ] if not validation_result else []
-    }
-
-@app.get("/api/debug-auth")
-async def debug_auth():
-    """Debug authentication configuration"""
-    if not netsuite_client:
-        return {
-            "configured": False,
-            "message": "NetSuite client not configured"
-        }
-    
-    return {
-        "configured": True,
-        "account_id": netsuite_client.account_id,
-        "consumer_key": f"{netsuite_client.consumer_key[:8]}...{netsuite_client.consumer_key[-4:]}" if netsuite_client.consumer_key else None,
-        "consumer_secret": f"{netsuite_client.consumer_secret[:4]}...{netsuite_client.consumer_secret[-4:]}" if netsuite_client.consumer_secret else None,
-        "token_id": f"{netsuite_client.token_id[:8]}...{netsuite_client.token_id[-4:]}" if netsuite_client.token_id else None,
-        "token_secret": f"{netsuite_client.token_secret[:4]}...{netsuite_client.token_secret[-4:]}" if netsuite_client.token_secret else None,
-        "library": "netsuite-python",
-        "checklist": [
-            "✓ Consumer Key format: Should be 64 characters",
-            "✓ Consumer Secret format: Should be 64 characters", 
-            "✓ Token ID format: Should be 64 characters",
-            "✓ Token Secret format: Should be 64 characters",
-            "✓ Account ID format: Should be like 'ACCT123456_SB1' for sandbox or 'ACCT123456' for production",
-            "✓ Integration Record: Must be 'Enabled' in NetSuite",
-            "✓ Token: Must be active and not expired",
-            "✓ Role: Must have 'SuiteQL' permission enabled"
-        ]
-    }
-
-@app.get("/api/sample-queries")
-async def get_sample_queries():
-    """Get sample SuiteQL queries"""
-    return {
-        "queries": [
-            {
-                "name": "Customer List",
-                "query": "SELECT id, entityid, companyname, email FROM customer WHERE isinactive = 'F' AND RowNum <= 10",
-                "description": "Retrieve a list of active customers"
-            },
-            {
-                "name": "Recent Transactions", 
-                "query": "SELECT id, tranid, type, trandate, entity FROM Transaction WHERE trandate >= SYSDATE - 30 AND RowNum <= 10 ORDER BY trandate DESC",
-                "description": "Recent transactions from last 30 days"
-            },
-            {
-                "name": "Sales Orders",
-                "query": "SELECT id, tranid, trandate, entity, status FROM Transaction WHERE type = 'SalesOrd' AND RowNum <= 10 ORDER BY trandate DESC",
-                "description": "Recent sales orders"
-            },
-            {
-                "name": "Item List",
-                "query": "SELECT id, itemid, displayname, itemtype FROM item WHERE isinactive = 'F' AND RowNum <= 10",
-                "description": "Active items in inventory"
-            },
-            {
-                "name": "Transaction with Customer Info",
-                "query": "SELECT t.id, t.tranid, t.trandate, c.companyname FROM Transaction t LEFT JOIN customer c ON t.entity = c.id WHERE t.type = 'SalesOrd' AND RowNum <= 5",
-                "description": "Sales orders with customer names (JOIN example)"
-            }
-        ]
-    }
-
+# For Vercel deployment
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

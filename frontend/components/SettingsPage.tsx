@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Settings, Save, Eye, EyeOff, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { API_ENDPOINTS } from '../config/api'
 
 interface NetSuiteConfig {
   account_id: string
@@ -40,7 +41,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
 
   const checkCurrentConfiguration = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/config')
+      const response = await axios.get(API_ENDPOINTS.config)
       if (response.data.configured) {
         setIsConfigured(true)
         // Mask actual values for security
@@ -85,7 +86,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     setIsSaving(true)
     
     try {
-      await axios.post('http://localhost:8000/api/config', config)
+      await axios.post(API_ENDPOINTS.config, config)
       toast.success('Configuration saved successfully.')
       setIsConfigured(true)
     } catch (error: any) {
@@ -105,7 +106,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     setIsTesting(true)
     
     try {
-      const response = await axios.get('http://localhost:8000/api/test-auth')
+      const response = await axios.get(API_ENDPOINTS.testAuth)
       if (response.data.status === 'success') {
         toast.success('NetSuite connection test successful!')
         onConfigurationComplete()
