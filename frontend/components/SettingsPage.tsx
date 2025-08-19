@@ -43,7 +43,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
       const response = await axios.get('http://localhost:8000/api/config')
       if (response.data.configured) {
         setIsConfigured(true)
-        // 보안을 위해 실제 값은 마스킹해서 표시
+        // Mask actual values for security
         setConfig({
           account_id: response.data.account_id || '',
           consumer_key: response.data.consumer_key ? '••••••••' : '',
@@ -62,7 +62,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
       ...prev,
       [field]: value
     }))
-    setIsConfigured(false) // 값이 변경되면 재설정 필요
+    setIsConfigured(false) // Configuration needs to be reset when values change
   }
 
   const toggleSecretVisibility = (field: 'consumer_secret' | 'token_secret') => {
@@ -73,12 +73,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
   }
 
   const saveConfiguration = async () => {
-    // 모든 필드가 입력되었는지 확인
+    // Check if all required fields are filled
     const requiredFields = Object.entries(config)
     const emptyFields = requiredFields.filter(([_, value]) => !value.trim())
     
     if (emptyFields.length > 0) {
-      toast.error('모든 필드를 입력해주세요.')
+      toast.error('Please fill in all fields.')
       return
     }
 
@@ -86,10 +86,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     
     try {
       await axios.post('http://localhost:8000/api/config', config)
-      toast.success('설정이 저장되었습니다.')
+      toast.success('Configuration saved successfully.')
       setIsConfigured(true)
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '설정 저장에 실패했습니다.'
+      const errorMessage = error.response?.data?.detail || 'Failed to save configuration.'
       toast.error(errorMessage)
     } finally {
       setIsSaving(false)
@@ -98,7 +98,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
 
   const testConnection = async () => {
     if (!isConfigured) {
-      toast.error('먼저 설정을 저장해주세요.')
+      toast.error('Please save the configuration first.')
       return
     }
 
@@ -107,13 +107,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     try {
       const response = await axios.get('http://localhost:8000/api/test-auth')
       if (response.data.status === 'success') {
-        toast.success('NetSuite 연결 테스트 성공!')
+        toast.success('NetSuite connection test successful!')
         onConfigurationComplete()
       } else {
-        toast.error(`연결 테스트 실패: ${response.data.error}`)
+        toast.error(`Connection test failed: ${response.data.error}`)
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '연결 테스트에 실패했습니다.'
+      const errorMessage = error.response?.data?.detail || 'Connection test failed.'
       toast.error(errorMessage)
     } finally {
       setIsTesting(false)
@@ -131,14 +131,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
                 className="flex items-center text-sm text-gray-600 hover:text-gray-800"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
-                메인 페이지로 돌아가기
+                Back to Main Page
               </button>
             </div>
           )}
           <Settings className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-          <h2 className="text-3xl font-bold text-gray-900">NetSuite 설정</h2>
+          <h2 className="text-3xl font-bold text-gray-900">NetSuite Configuration</h2>
           <p className="mt-2 text-sm text-gray-600">
-            SuiteQL을 사용하기 위한 NetSuite 인증 정보를 입력해주세요.
+            Enter your NetSuite authentication credentials to use SuiteQL.
           </p>
         </div>
 
@@ -255,12 +255,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
               {isSaving ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  저장 중...
+                  Saving...
                 </div>
               ) : (
                 <div className="flex items-center">
                   <Save className="w-4 h-4 mr-2" />
-                  설정 저장
+                  Save Configuration
                 </div>
               )}
             </button>
@@ -273,7 +273,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
               {isTesting ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                  연결 테스트 중...
+                  Testing Connection...
                 </div>
               ) : (
                 <div className="flex items-center">
@@ -282,7 +282,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
                   ) : (
                     <AlertCircle className="w-4 h-4 mr-2 text-orange-500" />
                   )}
-                  연결 테스트
+                  Test Connection
                 </div>
               )}
             </button>
@@ -292,10 +292,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
             <div className="flex">
               <AlertCircle className="h-5 w-5 text-yellow-400 mr-2 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-yellow-700">
-                <p className="font-medium">보안 안내</p>
+                <p className="font-medium">Security Notice</p>
                 <p className="mt-1">
-                  입력된 인증 정보는 서버 메모리에만 저장되며, 서버 재시작 시 다시 입력해야 합니다.
-                  민감한 정보는 안전하게 관리됩니다.
+                  The authentication information entered is stored only in server memory and will need to be re-entered when the server restarts.
+                  Sensitive information is managed securely.
                 </p>
               </div>
             </div>
