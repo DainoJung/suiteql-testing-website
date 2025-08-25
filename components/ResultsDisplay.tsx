@@ -67,13 +67,26 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center mb-4">
-          <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-          <h3 className="text-lg font-semibold text-red-700">Query Error</h3>
+          <AlertCircle className="w-6 h-6 text-red-500 mr-3" />
+          <div>
+            <h3 className="text-lg font-semibold text-red-700">Query Execution Failed</h3>
+            <p className="text-sm text-red-600 mt-1">The query returned an error response</p>
+          </div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <pre className="text-sm text-red-700 whitespace-pre-wrap">
-            {JSON.stringify(result.data, null, 2)}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <h4 className="font-medium text-red-800 mb-2">Error Details:</h4>
+          <pre className="text-sm text-red-700 whitespace-pre-wrap font-mono bg-white p-3 rounded border overflow-x-auto">
+            {typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2)}
           </pre>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-medium text-blue-800 mb-2">What to try:</h4>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• Check your query syntax for any typos</li>
+            <li>• Verify table and column names</li>
+            <li>• Ensure you have the required permissions</li>
+            <li>• Try simplifying complex joins or conditions</li>
+          </ul>
         </div>
       </div>
     )
@@ -240,28 +253,6 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
           )}
         </div>
       )}
-
-      {/* Query execution details */}
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <details className="text-sm text-gray-600">
-          <summary className="cursor-pointer font-medium hover:text-gray-800">
-            Query Details
-          </summary>
-          <div className="mt-2 p-3 bg-gray-50 rounded-md">
-            <pre className="whitespace-pre-wrap text-xs">
-              {result.query}
-            </pre>
-            {result.parameters && (
-              <div className="mt-2">
-                <span className="font-medium">Parameters:</span>
-                <pre className="mt-1 text-xs">
-                  {JSON.stringify(result.parameters, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        </details>
-      </div>
     </div>
   )
 }
