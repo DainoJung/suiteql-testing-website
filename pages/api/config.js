@@ -72,6 +72,7 @@ export default function handler(req, res) {
       
       // Store credentials securely
       credentialStore.set(sessionId, credentials);
+      console.log('Config stored credentials for sessionId:', sessionId);
       
       res.status(200).json({ 
         success: true,

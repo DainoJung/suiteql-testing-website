@@ -39,14 +39,21 @@ export default async function handler(req, res) {
     try {
       // Get session ID from request
       const sessionId = getSessionId(req);
+      console.log('Test-auth received sessionId:', sessionId);
+      console.log('Request headers:', req.headers);
+      
       let credentials = null;
       let source = 'none';
       
       // First try to get credentials from session
       if (sessionId) {
+        console.log('Checking credential store for sessionId:', sessionId);
         credentials = credentialStore.get(sessionId);
         if (credentials) {
           source = 'session';
+          console.log('Found credentials in session store');
+        } else {
+          console.log('No credentials found in session store');
         }
       }
       

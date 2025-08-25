@@ -98,10 +98,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     setIsSaving(true)
     
     try {
+      console.log('Saving config:', config);
       const response = await apiClient.post(API_ENDPOINTS.config, config)
+      console.log('Config response:', response.data);
+      
       if (response.data.sessionId) {
+        console.log('Storing sessionId:', response.data.sessionId);
         setSessionId(response.data.sessionId)
         localStorage.setItem('suiteql_session_id', response.data.sessionId)
+      } else {
+        console.log('No sessionId in response');
       }
       toast.success('Configuration saved successfully.')
       setIsConfigured(true)
