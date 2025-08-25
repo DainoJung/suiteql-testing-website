@@ -4,6 +4,7 @@ import { Play, Download, History, Save, Loader2 } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { API_ENDPOINTS } from '../config/api'
+import ErrorModal from './ErrorModal'
 
 interface QueryResult {
   success: boolean
@@ -32,6 +33,19 @@ AND RowNum <= 10`)
   const [showHistory, setShowHistory] = useState(false)
   const editorRef = useRef<any>(null)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean
+    error: {
+      title: string
+      message: string
+      details?: string
+      query?: string
+      type?: 'syntax' | 'execution' | 'network' | 'validation'
+    }
+  }>({
+    isOpen: false,
+    error: { title: '', message: '' }
+  })
 
   // Global keyboard shortcut as backup
   useEffect(() => {
@@ -81,7 +95,46 @@ AND RowNum <= 10`)
       toast.success('Query executed successfully')
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'Failed to execute query'
-      toast.error(errorMessage)
+      
+      // Determine error type based on error details
+      let errorType: 'syntax' | 'execution' | 'network' | 'validation' = 'execution'
+      let errorTitle = 'Query Execution Error'
+      
+      if (error.code === 'NETWORK_ERROR' || !error.response) {
+        errorType = 'network'
+        errorTitle = 'Network Connection Error'
+      } else if (error.response?.status === 400) {
+        errorType = 'syntax'
+        errorTitle = 'Query Syntax Error'
+      } else if (error.response?.status === 422) {
+        errorType = 'validation'
+        errorTitle = 'Query Validation Error'
+      }
+
+      // Show prominent error modal
+      setErrorModal({
+        isOpen: true,
+        error: {
+          title: errorTitle,
+          message: errorMessage,
+          details: error.response?.data?.message || error.message,
+          query: currentQuery.trim(),
+          type: errorType
+        }
+      })
+
+      // Also show toast for quick notification
+      toast.error(`${errorTitle}: Click for details`, {
+        duration: 6000,
+        style: {
+          background: '#FEE2E2',
+          color: '#991B1B',
+          border: '1px solid #FECACA',
+          fontSize: '14px',
+          fontWeight: '500'
+        }
+      })
+      
       console.error('Query execution error:', error)
     } finally {
       setIsExecuting(false)
@@ -139,9 +192,10 @@ AND RowNum <= 10`)
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-800">SuiteQL Query Editor</h2>
+    <>
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">SuiteQL Query Editor</h2>
         <div className="flex space-x-2">
           <button
             onClick={() => setShowHistory(!showHistory)}
@@ -231,8 +285,16 @@ AND RowNum <= 10`)
           )}
           {isExecuting ? 'Executing...' : 'Execute Query'}
         </button>
+        </div>
       </div>
-    </div>
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+        error={errorModal.error}
+      />
+    </>
   )
 }
 
