@@ -35,19 +35,25 @@ export default async function handler(req, res) {
     return;
   }
   
-  if (req.method === 'GET' || req.method === 'POST') {
+  if (req.method === 'POST') {
     try {
+      const { query, limit = 1000, offset = 0 } = req.body;
+      
+      if (!query) {
+        res.status(400).json({
+          success: false,
+          error: 'Query is required'
+        });
+        return;
+      }
+      
       // Get session ID from request
       const sessionId = getSessionId(req);
       let credentials = null;
-      let source = 'none';
       
       // First try to get credentials from session
       if (sessionId) {
         credentials = credentialStore.get(sessionId);
-        if (credentials) {
-          source = 'session';
-        }
       }
       
       // Fall back to environment variables
@@ -66,23 +72,25 @@ export default async function handler(req, res) {
             token_id,
             token_secret
           };
-          source = 'environment';
         }
       }
       
       if (!credentials) {
-        res.status(200).json({
-          status: 'error',
-          error: 'NetSuite credentials not configured',
-          source: source,
-          library: 'nextjs-api'
+        res.status(401).json({
+          success: false,
+          error: 'NetSuite credentials not configured. Please configure your NetSuite connection first.'
         });
         return;
       }
       
-      // Test the connection with a simple SuiteQL query
-      const testQuery = "SELECT id FROM employee WHERE ROWNUM <= 1";
+      // Prepare the API request
       const url = `https://${credentials.account_id}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql`;
+      
+      // Add limit and offset to query if not already present
+      let finalQuery = query.trim();
+      if (!finalQuery.toLowerCase().includes('limit') && !finalQuery.toLowerCase().includes('fetch')) {
+        finalQuery += ` LIMIT ${limit} OFFSET ${offset}`;
+      }
       
       // OAuth 1.0a parameters
       const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -113,43 +121,72 @@ export default async function handler(req, res) {
         .concat(`oauth_signature="${encodeURIComponent(signature)}"`)
         .join(', ');
       
-      // Make test request
+      // Make the request to NetSuite
       const response = await axios.post(
         url,
-        { q: testQuery },
+        { q: finalQuery },
         {
           headers: {
             'Authorization': authHeader,
             'Content-Type': 'application/json',
             'prefer': 'transient'
           },
-          timeout: 10000
+          timeout: 30000 // 30 seconds timeout
         }
       );
       
+      // Process the response
+      const data = response.data;
+      
       res.status(200).json({
-        status: 'success',
-        message: 'NetSuite connection successful',
-        library: 'nextjs-api',
-        source: source,
-        account_id: credentials.account_id
+        success: true,
+        data: {
+          items: data.items || [],
+          count: data.totalResults || (data.items ? data.items.length : 0),
+          hasMore: data.hasMore || false,
+          offset: data.offset || offset,
+          links: data.links || []
+        },
+        query: finalQuery,
+        parameters: {
+          limit,
+          offset
+        }
       });
       
     } catch (error) {
-      console.error('NetSuite connection test failed:', error);
+      console.error('SuiteQL query failed:', error);
       
-      let errorMessage = 'Failed to connect to NetSuite';
+      let errorMessage = 'Failed to execute query';
+      let errorType = 'execution';
+      
       if (error.response) {
-        errorMessage = error.response.data?.title || error.response.data?.detail || errorMessage;
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        if (status === 400) {
+          errorType = 'syntax';
+          errorMessage = data?.title || 'Query syntax error';
+        } else if (status === 401) {
+          errorType = 'authentication';
+          errorMessage = 'Authentication failed. Please check your credentials.';
+        } else if (status === 403) {
+          errorType = 'permission';
+          errorMessage = 'Permission denied. Please check your NetSuite permissions.';
+        } else {
+          errorMessage = data?.title || data?.detail || errorMessage;
+        }
       } else if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        errorType = 'network';
         errorMessage = 'Network connection failed';
       }
       
       res.status(200).json({
-        status: 'error',
+        success: false,
         error: errorMessage,
-        library: 'nextjs-api',
-        details: error.response?.data || error.message
+        errorType: errorType,
+        details: error.response?.data || error.message,
+        query: req.body.query
       });
     }
   } else {

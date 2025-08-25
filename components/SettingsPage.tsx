@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Settings, Save, Eye, EyeOff, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react'
-import axios from 'axios'
 import toast from 'react-hot-toast'
 import { API_ENDPOINTS } from '../config/api'
+import apiClient from '../utils/apiClient'
 
 interface NetSuiteConfig {
   account_id: string
@@ -34,24 +34,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [isConfigured, setIsConfigured] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   useEffect(() => {
+    // Get session ID from localStorage if exists
+    const storedSessionId = localStorage.getItem('suiteql_session_id')
+    if (storedSessionId) {
+      setSessionId(storedSessionId)
+    }
     checkCurrentConfiguration()
   }, [])
 
   const checkCurrentConfiguration = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.config)
+      const response = await apiClient.get(API_ENDPOINTS.config)
       if (response.data.configured) {
         setIsConfigured(true)
-        // Mask actual values for security
-        setConfig({
-          account_id: response.data.account_id || '',
-          consumer_key: response.data.consumer_key ? '••••••••' : '',
-          consumer_secret: response.data.consumer_secret ? '••••••••' : '',
-          token_id: response.data.token_id ? '••••••••' : '',
-          token_secret: response.data.token_secret ? '••••••••' : ''
-        })
+        if (response.data.sessionId) {
+          setSessionId(response.data.sessionId)
+          localStorage.setItem('suiteql_session_id', response.data.sessionId)
+        }
+        // Don't overwrite user input with masked values if source is 'session'
+        if (response.data.source === 'environment') {
+          setConfig({
+            account_id: response.data.account_id || '',
+            consumer_key: response.data.consumer_key ? '••••••••' : '',
+            consumer_secret: response.data.consumer_secret ? '••••••••' : '',
+            token_id: response.data.token_id ? '••••••••' : '',
+            token_secret: response.data.token_secret ? '••••••••' : ''
+          })
+        }
       }
     } catch (error) {
       console.log('No existing configuration found')
@@ -86,11 +98,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     setIsSaving(true)
     
     try {
-      await axios.post(API_ENDPOINTS.config, config)
+      const response = await apiClient.post(API_ENDPOINTS.config, config)
+      if (response.data.sessionId) {
+        setSessionId(response.data.sessionId)
+        localStorage.setItem('suiteql_session_id', response.data.sessionId)
+      }
       toast.success('Configuration saved successfully.')
       setIsConfigured(true)
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to save configuration.'
+      const errorMessage = error.response?.data?.error || error.response?.data?.detail || 'Failed to save configuration.'
       toast.error(errorMessage)
     } finally {
       setIsSaving(false)
@@ -106,7 +122,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
     setIsTesting(true)
     
     try {
-      const response = await axios.get(API_ENDPOINTS.testAuth)
+      const response = await apiClient.post(API_ENDPOINTS.testAuth, {})
       if (response.data.status === 'success') {
         toast.success('NetSuite connection test successful!')
         onConfigurationComplete()
@@ -114,7 +130,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
         toast.error(`Connection test failed: ${response.data.error}`)
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Connection test failed.'
+      const errorMessage = error.response?.data?.error || error.response?.data?.detail || 'Connection test failed.'
       toast.error(errorMessage)
     } finally {
       setIsTesting(false)
@@ -295,8 +311,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onConfigurationComplete, sh
               <div className="text-sm text-yellow-700">
                 <p className="font-medium">Security Notice</p>
                 <p className="mt-1">
-                  The authentication information entered is stored only in server memory and will need to be re-entered when the server restarts.
-                  Sensitive information is managed securely.
+                  Your credentials are encrypted and stored securely in server memory for this session only.
+                  They will expire after 4 hours of inactivity or when the server restarts.
+                  All sensitive information is encrypted using AES-256-GCM encryption.
                 </p>
               </div>
             </div>

@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import { Play, Download, History, Save, Loader2 } from 'lucide-react'
-import axios from 'axios'
 import toast from 'react-hot-toast'
 import { API_ENDPOINTS } from '../config/api'
 import ErrorModal from './ErrorModal'
+import apiClient from '../utils/apiClient'
 
 interface QueryResult {
   success: boolean
@@ -77,7 +77,7 @@ AND RowNum <= 10`)
     try {
       console.log('Executing query:', currentQuery.trim())
       
-      const response = await axios.post(API_ENDPOINTS.suiteql, {
+      const response = await apiClient.post(API_ENDPOINTS.suiteql, {
         query: currentQuery.trim()
       })
 
@@ -143,7 +143,7 @@ AND RowNum <= 10`)
 
   const loadSampleQueries = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/sample-queries')
+      const response = await apiClient.get(API_ENDPOINTS.sampleQueries)
       const samples = response.data.queries
       
       // Show samples in a simple format for now
